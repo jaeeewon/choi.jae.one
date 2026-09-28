@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jay</title>
+    <link rel="stylesheet" href="/vendor/easymde/easymde.min.css">
+    <style>
+        body { box-sizing: border-box; min-height: 100vh; min-height: 100dvh; margin: 0; padding: 24px; display: flex; flex-direction: column; font: 16px/1.5 system-ui, sans-serif; }
+        main, footer { width: 100%; }
+        main { flex: 1 0 auto; max-width: 72rem; }
+        .tabs { display: flex; gap: 8px; margin: 20px 0 12px; border-bottom: 1px solid #999; }
+        .tabs a { padding: 6px 14px; color: inherit; text-decoration: none; border: 1px solid #999; border-bottom: 0; }
+        .tabs a[aria-selected="true"] { background: #eee; font-weight: bold; }
+        .panel { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+        .panel[hidden] { display: none; }
+        fieldset {
+            min-width: 0; box-sizing: border-box; margin: 0; padding: 12px;
+            border: 1px solid #999; border-radius: 6px;
+        }
+        #file-box, #modify-box, #posts-box { width: min(100%, 72rem); }
+        .file-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+        .file-columns > fieldset { width: 100%; }
+        #post-upload-box, #post-view-box { width: min(100%, 72rem); }
+        @media (max-width: 760px) { .file-columns { grid-template-columns: 1fr; } }
+        legend { font-weight: bold; }
+        label { display: inline-flex; flex-direction: column; gap: 4px; margin: 0 8px 8px 0; }
+        input { width: 11rem; max-width: 100%; box-sizing: border-box; padding: 4px; }
+        input[type="url"] { width: min(22rem, 100%); }
+        #file-name { width: min(24rem, 100%); }
+        #image-width { width: 6rem; }
+        button { padding: 4px 8px; cursor: pointer; }
+        button:disabled { cursor: default; }
+        .action { margin: 8px 0; padding: 8px; border: 1px solid #ddd; }
+        .action h3, .action h4 { margin: 0 0 8px; }
+        .command { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; padding: 8px; background: #f5f5f5; border: 1px solid #ddd; }
+        .command code { flex: 1; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+        .entry { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+        .entry a { overflow-wrap: anywhere; }
+        details { margin: 4px 0 4px 12px; }
+        small { color: #666; }
+        #image-status, #post-folder-status, #post-build-status { display: block; }
+        .image-row { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin: 8px 0; padding: 8px; border: 1px solid #ddd; }
+        .image-row label { flex: 1 1 100%; margin: 0; }
+        .image-row label input { width: min(100%, 24rem); }
+        .image-row small { flex-basis: 100%; overflow-wrap: anywhere; }
+        .image-row .command { flex-basis: 100%; }
+        .image-row img { width: 48px; height: 48px; object-fit: contain; }
+        #post-source { box-sizing: border-box; width: 100%; min-height: 16rem; }
+        #post-upload-box .CodeMirror { min-height: 16rem; }
+        #post-upload-box .editor-toolbar button { width: auto; min-width: 30px; padding: 0 6px; font-size: 13px; }
+        #post-upload-box .editor-toolbar .post-preview-toggle { padding: 0 8px; }
+        .editor-fields { display: flex; align-items: end; flex-wrap: wrap; gap: 0 8px; }
+        .editor-fields > button { margin-bottom: 8px; }
+        .editor-fields label { margin-right: 0; }
+        .editor-fields #posts-user, .editor-fields #posts-host { width: 9rem; }
+        .editor-fields #reset-post { margin-left: auto; }
+        .action > small { display: block; }
+        #modify-box .command code, #post-upload-box .command code { max-height: 6rem; overflow: auto; }
+        #post-folder[readonly] { background: #eee; }
+        .post-body { overflow-wrap: anywhere; }
+        .post-body img, #post-upload-box .editor-preview-full img { max-width: 100%; }
+        .post-body pre, .post-body table { max-width: 100%; overflow-x: auto; }
+        footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #ccc; }
+    </style>
+    <script src="/vendor/dompurify/purify.min.js" defer></script>
+    <script src="/vendor/easymde/easymde.min.js" defer></script>
+    <script type="module" src="/main.js"></script>
+</head>
+<body>
+    <h1>jay</h1>
+    <strong>방문해주셔서 감사해요.</strong>
+
+    <nav class="tabs" role="tablist" aria-label="content">
+        <a id="file-tab" href="#file" role="tab" aria-controls="file-panel">file</a>
+        <a id="posts-tab" href="#posts" role="tab" aria-controls="posts-panel">posts</a>
+    </nav>
+    <span id="copy-status" role="status" aria-live="polite"></span>
+
+    <main>
+        <section id="file-panel" class="panel" role="tabpanel" aria-labelledby="file-tab">
+            <fieldset id="file-box">
+                <legend>file box</legend>
+                <div class="file-columns">
+                    <fieldset id="static-box">
+                        <legend>static box</legend>
+                        <div id="files"></div>
+                    </fieldset>
+
+                    <fieldset id="link-box">
+                        <legend>link box</legend>
+                        <div id="links"></div>
+                    </fieldset>
+                </div>
+            </fieldset>
+
+            <button id="toggle-modify" type="button" aria-controls="modify-box" aria-expanded="false">modify 열기</button>
+            <fieldset id="modify-box" hidden>
+                <legend>modify</legend>
+                <div>
+                    <label>user <input id="scp-user" type="text" autocomplete="off"></label>
+                    <label>host <input id="scp-host" type="text" autocomplete="off"></label>
+                </div>
+                <div class="file-columns">
+                    <fieldset id="static-modify-box">
+                        <legend>static</legend>
+                        <section id="selected-panel" hidden>
+                            <h3>selected: <span id="selected-name"></span> <button id="clear-selection" type="button">선택 해제</button></h3>
+                            <div class="action">
+                                <h4>delete</h4>
+                                <div class="command"><code id="delete-command"></code><button type="button" data-copy="delete" disabled>copy</button></div>
+                            </div>
+                            <div class="action">
+                                <h4>rename</h4>
+                                <label>new_name <input id="new-name" type="text" value="" autocomplete="off"></label>
+                                <div class="command"><code id="rename-command"></code><button type="button" data-copy="rename" disabled>copy</button></div>
+                            </div>
+                        </section>
+                        <h3>upload</h3>
+                        <label>folder (files/ 아래) <input id="folder-name" type="text" value="" autocomplete="off"></label>
+                        <div class="action">
+                            <h4>SCP · 로컬 경로</h4>
+                            <label>local path <input id="file-name" type="text" value="" autocomplete="off"></label>
+                            <label>file name (서버) <input id="upload-name" type="text" value="" autocomplete="off"></label>
+                            <small>folder를 지정했다면 mkdir 명령을 먼저 실행하세요.</small>
+                            <div class="command"><code id="mkdir-command"></code><button type="button" data-copy="mkdir" disabled>copy</button></div>
+                            <div class="command"><code id="upload-command"></code><button type="button" data-copy="upload" disabled>copy</button></div>
+                        </div>
+                    </fieldset>
+                    <fieldset id="link-modify-box">
+                        <legend>link</legend>
+                        <section id="selected-link-panel" hidden>
+                            <h3>selected: <span id="selected-link-name"></span> <button id="clear-link-selection" type="button">선택 해제</button></h3>
+                            <div class="action">
+                                <h4>delete</h4>
+                                <div class="command"><code id="link-delete-command"></code><button type="button" data-copy="link-delete" disabled>copy</button></div>
+                            </div>
+                            <div class="action">
+                                <h4>change</h4>
+                                <label>folder <input id="selected-link-folder" type="text" autocomplete="off"></label>
+                                <label>title <input id="selected-link-title" type="text" autocomplete="off"></label>
+                                <label>url <input id="selected-link-url" type="url" autocomplete="off"></label>
+                                <div class="command"><code id="link-edit-command"></code><button type="button" data-copy="link-edit" disabled>copy</button></div>
+                            </div>
+                        </section>
+                        <h3>add</h3>
+                        <label>folder (예: 발표/수업) <input id="link-folder" type="text" value="" autocomplete="off"></label>
+                        <label>title <input id="link-title" type="text" value="" autocomplete="off"></label>
+                        <label>url <input id="link-url" type="url" value="" autocomplete="off"></label>
+                        <div class="command"><code id="link-command"></code><button type="button" data-copy="link" disabled>copy</button></div>
+                    </fieldset>
+                </div>
+            </fieldset>
+        </section>
+
+        <section id="posts-panel" class="panel" role="tabpanel" aria-labelledby="posts-tab" hidden>
+            <fieldset id="posts-box">
+                <legend>posts</legend>
+                <div id="posts-list"></div>
+            </fieldset>
+            <div><button id="new-post" type="button">새 글 작성</button> <button id="close-post-editor" type="button" hidden>편집기 닫기</button></div>
+            <fieldset id="post-view-box" hidden>
+                <legend id="post-view-title">post</legend>
+                <article id="post-body" class="post-body"></article>
+                <button id="edit-open-post" type="button">이 글 수정</button>
+            </fieldset>
+            <fieldset id="post-upload-box" hidden>
+                <legend id="post-editor-title">post editor</legend>
+                <div class="editor-fields">
+                    <label>user <input id="posts-user" type="text" autocomplete="off"></label>
+                    <label>host <input id="posts-host" type="text" autocomplete="off"></label>
+                    <label>title (posts/ 아래 폴더) <input id="post-folder" type="text" value="" autocomplete="off" placeholder="글 제목"></label>
+                    <button id="unlock-post-title" type="button" hidden>제목 변경</button>
+                    <button id="reset-post" type="button" hidden>원본 다시 불러오기</button>
+                </div>
+                <small id="post-folder-status" role="status"></small>
+                <div id="post-rename-panel" class="action" hidden>
+                    <h4>폴더명 변경</h4>
+                    <small>명령 실행 후 제목 변경 확인을 누르세요. 본문은 확인 뒤 저장할 수 있습니다.</small>
+                    <div class="command"><code id="post-rename-command"></code><button type="button" data-copy="post-rename" disabled>copy</button></div>
+                    <button id="confirm-post-rename" type="button">제목 변경 확인</button>
+                    <small id="post-rename-status" role="status"></small>
+                </div>
+                <textarea id="post-source" aria-label="마크다운 본문"></textarea>
+                <small>글은 posts/제목/post.md에 저장됩니다. 새 글 명령 실행 후 글 생성 확인을 누르면 이 편집기에서 이어서 수정할 수 있습니다.</small>
+                <details id="post-images">
+                    <summary>이미지 추가</summary>
+                    <small>이미지마다 로컬 경로를 입력해 SCP를 실행하세요. 확인은 서버에서 이미지가 보이는지 검사하며, 같은 이름의 기존 이미지도 확인됩니다.</small>
+                    <button id="add-image" type="button">이미지 행 추가</button>
+                    <div id="image-list"></div>
+                    <button id="verify-images" type="button" disabled>업로드 확인</button>
+                    <button id="insert-markdown" type="button" disabled>마크다운으로 삽입</button>
+                    <label>HTML 너비 (px) <input id="image-width" type="number" min="1" max="10000" value="480"></label>
+                    <button id="insert-html" type="button" disabled>HTML로 삽입</button>
+                    <small id="image-status" role="status"></small>
+                </details>
+                <button id="build-post" type="button" disabled>글 저장 명령 만들기</button>
+                <button id="confirm-post" type="button" hidden>글 생성 확인</button>
+                <small id="post-build-status" role="status"></small>
+                <div class="command"><code id="post-command"></code><button type="button" data-copy="post" disabled>copy</button></div>
+            </fieldset>
+        </section>
+    </main>
+
+    <footer>
+        <p>email: <a href="mailto:jaeeewon24@hufs.ac.kr">jaeeewon24@hufs.ac.kr</a> | <a href="mailto:choi@jae.one">choi@jae.one</a></p>
+        <p>Latest update: 26.09.28.</p>
+    </footer>
+</body>
+</html>
