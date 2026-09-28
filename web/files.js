@@ -288,6 +288,5 @@ export function initFiles() {
     $('clear-link-selection').addEventListener('click', () => {
         if (selectedLink) selectLink(selectedLink, selectedLinkButton);
     });
-    showFiles();
-    return updateCommands;
+    return { updateCommands, ready: showFiles() };
 }

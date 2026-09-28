@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="loading">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>jay</title>
     <link rel="stylesheet" href="/vendor/easymde/easymde.min.css">
     <style>
+        html.loading body { visibility: hidden; }
         body { box-sizing: border-box; min-height: 100vh; min-height: 100dvh; margin: 0; padding: 24px; display: flex; flex-direction: column; font: 16px/1.5 system-ui, sans-serif; }
         main, footer { width: 100%; }
         main { flex: 1 0 auto; max-width: 72rem; }
@@ -18,7 +19,7 @@
             min-width: 0; box-sizing: border-box; margin: 0; padding: 12px;
             border: 1px solid #999; border-radius: 6px;
         }
-        #file-box, #modify-box, #posts-box { width: min(100%, 72rem); }
+        .page-box, #file-box, #modify-box, #posts-box { width: min(100%, 72rem); }
         .file-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
         .file-columns > fieldset { width: 100%; }
         #post-upload-box, #post-view-box { width: min(100%, 72rem); }
@@ -72,16 +73,18 @@
     <h1>jay</h1>
     <strong>방문해주셔서 감사해요.</strong>
 
-    <nav class="tabs" role="tablist" aria-label="content">
-        <a id="file-tab" href="#file" role="tab" aria-controls="file-panel">file</a>
+    <nav id="tabs" class="tabs" role="tablist" aria-label="content">
+        <a id="file-tab" href="#files" role="tab" aria-controls="file-panel">files</a>
         <a id="posts-tab" href="#posts" role="tab" aria-controls="posts-panel">posts</a>
     </nav>
     <span id="copy-status" role="status" aria-live="polite"></span>
 
     <main>
+        <div id="pages-panels"></div>
+
         <section id="file-panel" class="panel" role="tabpanel" aria-labelledby="file-tab">
             <fieldset id="file-box">
-                <legend>file box</legend>
+                <legend>files</legend>
                 <div id="file-tree"></div>
             </fieldset>
 

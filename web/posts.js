@@ -536,7 +536,7 @@ export function initPosts() {
     }
 
     function openTab() {
-        showPosts();
+        const pending = [showPosts()];
         if (markdownEditor && !$('post-upload-box').hidden) {
             requestAnimationFrame(() => markdownEditor.codemirror.refresh());
         }
@@ -544,8 +544,9 @@ export function initPosts() {
         if (location.hash.startsWith('#posts/')) {
             try { folder = decodeURIComponent(location.hash.slice(7)); } catch {}
         }
-        if (safeSegment(folder)) showPost(folder);
+        if (safeSegment(folder)) pending.push(showPost(folder));
         else { openFolder = null; $('post-view-box').hidden = true; }
+        return Promise.all(pending);
     }
 
     $('add-image').addEventListener('click', addImage);
@@ -577,5 +578,6 @@ export function initPosts() {
     $('build-post').addEventListener('click', buildPost);
     $('confirm-post').addEventListener('click', confirmPost);
     showFolderState(); updateState();
-    return { updateCommands: updateState, openTab };
+    return { updateCommands: updateState, openTab,
+        markdown: content => markdownEditor ? markdownEditor.markdown(content) : null };
 }
