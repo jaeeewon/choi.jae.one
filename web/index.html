@@ -37,6 +37,7 @@
         .command code { flex: 1; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
         .entry { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
         .entry a { overflow-wrap: anywhere; }
+        .source { margin: 0 4px; }
         details { margin: 4px 0 4px 12px; }
         small { color: #666; }
         #image-status, #post-folder-status, #post-build-status { display: block; }
@@ -81,17 +82,7 @@
         <section id="file-panel" class="panel" role="tabpanel" aria-labelledby="file-tab">
             <fieldset id="file-box">
                 <legend>file box</legend>
-                <div class="file-columns">
-                    <fieldset id="static-box">
-                        <legend>static box</legend>
-                        <div id="files"></div>
-                    </fieldset>
-
-                    <fieldset id="link-box">
-                        <legend>link box</legend>
-                        <div id="links"></div>
-                    </fieldset>
-                </div>
+                <div id="file-tree"></div>
             </fieldset>
 
             <button id="toggle-modify" type="button" aria-controls="modify-box" aria-expanded="false">modify 열기</button>

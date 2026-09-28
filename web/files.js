@@ -63,6 +63,12 @@ export function initFiles() {
                 "        items = found['children']",
                 '    items.append(item)'
             ]),
+            'def prune_empty(items):',
+            '    for entry in items[:]:',
+            "        if isinstance(entry.get('children'), list):",
+            "            prune_empty(entry['children'])",
+            "            if not entry['children']: items.remove(entry)",
+            'prune_empty(data)',
             "path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\\n')"
         ].join('\n');
         return remotePython(account, script);
@@ -134,46 +140,15 @@ export function initFiles() {
         updateCommands();
     }
 
-    async function showFiles(path, container, prefix = '') {
-        try {
-            const entries = await getJson(path);
-            container.replaceChildren();
-            for (const item of entries) {
-                const url = path + encodeURIComponent(item.name);
-                const relative = prefix + item.name;
-                const meta = element('small', formatTime(item.mtime) +
-                    (item.size === undefined ? '' : ' · ' + formatSize(item.size)));
-                if (item.type === 'directory') {
-                    const folder = element('details', '');
-                    const summary = element('summary', item.name + '/ ');
-                    const children = element('div', '');
-                    summary.append(meta);
-                    folder.append(summary, children);
-                    folder.addEventListener('toggle', () => {
-                        if (folder.open) showFiles(url + '/', children, relative + '/');
-                    });
-                    container.append(folder);
-                } else {
-                    const row = element('div', '');
-                    row.className = 'entry';
-                    const link = element('a', item.name);
-                    link.href = url;
-                    link.target = '_blank';
-                    link.rel = 'noopener noreferrer';
-                    const button = element('button', selectedPath === relative ? '선택 해제' : '선택');
-                    button.type = 'button';
-                    if (selectedPath === relative) selectedButton = button;
-                    button.addEventListener('click', () => selectFile(relative, button));
-                    row.append(link, meta, button);
-                    container.append(row);
-                }
-            }
-            if (!entries.length) container.textContent = '비어 있음';
-        } catch (error) {
-            container.textContent = '파일 목록을 불러오지 못했습니다.';
-            console.error('Failed to load ' + path + ':', error);
-        }
-    }
+    const hasLink = item => !Array.isArray(item.children) || item.children.some(hasLink);
+    const wrapLinks = (items, indices = [], ancestors = []) => items.map((item, index) => ({
+        item, indices: [...indices, index], ancestors
+    }));
+    const source = text => {
+        const badge = element('small', text);
+        badge.className = 'source';
+        return badge;
+    };
 
     function selectLink(selection, button) {
         const deselect = selectedLink &&
@@ -191,40 +166,101 @@ export function initFiles() {
         updateCommands();
     }
 
-    function renderLinks(items, container, indices = [], ancestors = []) {
-        for (const [index, item] of items.entries()) {
-            if (Array.isArray(item.children)) {
-                const folder = element('details', '');
-                const children = element('div', '');
-                folder.append(element('summary', item.title + '/'), children);
-                renderLinks(item.children, children, [...indices, index], [...ancestors, item.title]);
-                container.append(folder);
-            } else {
-                const row = element('div', '');
-                row.className = 'entry';
-                const link = element('a', item.title);
-                link.href = item.url;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                const selection = { indices: [...indices, index], ancestors,
-                    original: JSON.parse(JSON.stringify(item)) };
-                const button = element('button', '선택');
-                button.type = 'button';
-                button.addEventListener('click', () => selectLink(selection, button));
-                row.append(link, button);
-                container.append(row);
-            }
+    function renderTree(entries, container, path, prefix, linkNodes, failed = false) {
+        const links = linkNodes.filter(node => hasLink(node.item));
+        const folders = new Map();
+        for (const item of entries) if (item.type === 'directory') {
+            folders.set(item.name, { file: item, links: [] });
         }
+        for (const node of links) if (Array.isArray(node.item.children)) {
+            if (!folders.has(node.item.title)) folders.set(node.item.title, { file: null, links: [] });
+            folders.get(node.item.title).links.push(node);
+        }
+        container.replaceChildren();
+        const rendered = new Set();
+        function addFolder(name) {
+            if (rendered.has(name)) return;
+            rendered.add(name);
+            const group = folders.get(name);
+            const children = element('div', '');
+            const details = element('details', '');
+            const summary = element('summary', name + '/ ');
+            summary.append(source([group.file && 'static', group.links.length && 'link'].filter(Boolean).join(' · ')));
+            if (group.file) summary.append(element('small', formatTime(group.file.mtime) +
+                (group.file.size === undefined ? '' : ' · ' + formatSize(group.file.size))));
+            details.append(summary, children);
+            const childLinks = group.links.flatMap(({ item, indices, ancestors }) =>
+                wrapLinks(item.children, indices, [...ancestors, item.title]));
+            const childPath = group.file ? path + encodeURIComponent(name) + '/' : null;
+            details.addEventListener('toggle', () => {
+                if (details.open) showTree(childPath, children, prefix + name + '/', childLinks);
+            });
+            container.append(details);
+        }
+        for (const item of entries) {
+            if (item.type === 'directory') { addFolder(item.name); continue; }
+            const relative = prefix + item.name;
+            const row = element('div', '');
+            row.className = 'entry';
+            const link = element('a', item.name);
+            link.href = path + encodeURIComponent(item.name);
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            const button = element('button', selectedPath === relative ? '선택 해제' : '선택');
+            button.type = 'button';
+            if (selectedPath === relative) selectedButton = button;
+            button.addEventListener('click', () => selectFile(relative, button));
+            row.append(link, source('static'), element('small', formatTime(item.mtime) +
+                (item.size === undefined ? '' : ' · ' + formatSize(item.size))), button);
+            container.append(row);
+        }
+        for (const node of links) {
+            const item = node.item;
+            if (Array.isArray(item.children)) { addFolder(item.title); continue; }
+            const row = element('div', '');
+            row.className = 'entry';
+            const link = element('a', item.title);
+            link.href = item.url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            const selection = { indices: node.indices, ancestors: node.ancestors,
+                original: JSON.parse(JSON.stringify(item)) };
+            const selected = selectedLink &&
+                JSON.stringify(selectedLink.indices) === JSON.stringify(selection.indices);
+            const button = element('button', selected ? '선택 해제' : '선택');
+            button.type = 'button';
+            if (selected) selectedLinkButton = button;
+            button.addEventListener('click', () => selectLink(selection, button));
+            row.append(link, source('link'), button);
+            container.append(row);
+        }
+        if (!entries.length && !links.length && !failed) container.textContent = '비어 있음';
     }
 
-    async function showLinks() {
-        const container = $('links');
-        try {
-            container.replaceChildren();
-            renderLinks(await getJson('/links.json'), container);
-        } catch (error) {
-            container.textContent = '링크 목록을 불러오지 못했습니다.';
-            console.error('Failed to load links:', error);
+    async function showTree(path, container, prefix, links) {
+        let entries = [], failed = false;
+        try { if (path) entries = await getJson(path); }
+        catch (error) {
+            failed = true;
+            console.error('Failed to load ' + path + ':', error);
+        }
+        renderTree(entries, container, path, prefix, links, failed);
+        if (failed) container.append(element('small', '파일 목록을 불러오지 못했습니다.'));
+    }
+
+    async function showFiles() {
+        const [files, links] = await Promise.allSettled([getJson('/files/'), getJson('/links.json')]);
+        const container = $('file-tree');
+        renderTree(files.status === 'fulfilled' ? files.value : [], container, '/files/', '',
+            links.status === 'fulfilled' ? wrapLinks(links.value) : [],
+            files.status === 'rejected' || links.status === 'rejected');
+        if (files.status === 'rejected') {
+            container.append(element('small', '파일 목록을 불러오지 못했습니다.'));
+            console.error('Failed to load files:', files.reason);
+        }
+        if (links.status === 'rejected') {
+            container.append(element('small', '링크 목록을 불러오지 못했습니다.'));
+            console.error('Failed to load links:', links.reason);
         }
     }
 
@@ -252,7 +288,6 @@ export function initFiles() {
     $('clear-link-selection').addEventListener('click', () => {
         if (selectedLink) selectLink(selectedLink, selectedLinkButton);
     });
-    showFiles('/files/', $('files'));
-    showLinks();
+    showFiles();
     return updateCommands;
 }
